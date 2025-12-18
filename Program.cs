@@ -6,6 +6,9 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Tab;
+using System.Text.RegularExpressions;
+using static System.IdentityModel.Tokens.SecurityTokenHandlerCollectionManager;
 
 namespace CombineContacts
 {
@@ -196,6 +199,9 @@ namespace CombineContacts
                 int count = 0;
                 ContactItem currentItem = null;
                 List<ContactObject> contactsToCombine = new List<ContactObject>();
+                List<ContactItem> deleteList = new List<ContactItem>();
+                bool combine = false;
+
 
                 // Start Outlook application
                 outlookApp = new Application();
@@ -206,160 +212,225 @@ namespace CombineContacts
                 Items contactItems = contactsFolder.Items;
                 contactItems.Sort("[FullName]", false);
 
+                Dictionary<string, string> emailsToDelete = LoadEmailsIntoDictionary(".\\emails.txt");
+
                 foreach (ContactItem contact in contactItems)
                 {
                     count++;
                     Console.WriteLine(count);
 
-                    Marshal.ReleaseComObject(currentItem);
-
-                    /*
-                    if(currentItem == null)
+                    if (combine)
                     {
-                        currentItem = contact;
-                        continue;
-                    }
-
-                    if (currentItem.FullName == contact.FullName)
-                    {
-                        if (currentItem.FirstName == contact.FirstName &&
-                            currentItem.MiddleName == contact.MiddleName &&
-                            currentItem.LastName == contact.LastName &&
-                            currentItem.Suffix == contact.Suffix &&
-                            currentItem.JobTitle == contact.JobTitle &&
-                            currentItem.CompanyName == contact.CompanyName &&
-                            currentItem.BusinessHomePage == contact.BusinessHomePage &&
-                            // currentItem.Categories == contact.Categories &&
-                            // currentItem.Body == contact.Body &&
-                            currentItem.BusinessTelephoneNumber == contact.BusinessTelephoneNumber &&
-                            currentItem.Business2TelephoneNumber == contact.Business2TelephoneNumber &&
-                            currentItem.Email1Address == contact.Email1Address &&
-                            currentItem.Email2Address == contact.Email2Address &&
-                            currentItem.Email3Address == contact.Email3Address &&
-                            currentItem.MobileTelephoneNumber == contact.MobileTelephoneNumber)
+                        if (currentItem == null)
                         {
-                            bool bSave = false;
-
-                            if (contact.Body != null)
-                            {
-                                string newBody = currentItem.Body;
-                                newBody = contact.Body + $"\n{contact.Body}";
-                                currentItem.Body = newBody;
-                                bSave = true;
-                            }
-
-                            if (contact.Categories != null)
-                            {
-                                string existingCategoriesNew = contact.Categories ?? string.Empty;
-                                string existingCategoriesOld = currentItem.Categories ?? string.Empty;
-
-                                // Split into a list
-                                var categoriesNew = existingCategoriesNew
-                                    .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
-                                    .Select(c => c.Trim())
-                                    .ToList();
-
-                                var categoriesOld = existingCategoriesOld
-                                    .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
-                                    .Select(c => c.Trim())
-                                    .ToList();
-
-
-                                foreach (string c in categoriesNew)
-                                {
-                                    if (!categoriesOld.Contains(c, StringComparer.OrdinalIgnoreCase))
-                                    {
-                                        categoriesOld.Add(c);
-                                    }
-                                }
-
-                                // Join back into a semicolon-delimited string
-                                currentItem.Categories = string.Join(";", categoriesOld);
-
-                                bSave = true;
-                            }
-
-                            // Save the contact
-                            if (bSave)
-                            {
-                                currentItem.Save();
-                            }
-
-                            string fullName = contact.FullName;
-                            contact.Delete();
-                            Console.WriteLine($"Delete {fullName}");
-
-                            Marshal.ReleaseComObject(contact);
+                            currentItem = contact;
                             continue;
                         }
-                        else
+
+                        if (currentItem.FullName == contact.FullName)
                         {
-                            if (ContactObject.NumberOfFieldSet(currentItem) >= ContactObject.NumberOfFieldSet(contact))
+                            if (currentItem.FirstName == contact.FirstName &&
+                                currentItem.MiddleName == contact.MiddleName &&
+                                currentItem.LastName == contact.LastName &&
+                                currentItem.Suffix == contact.Suffix &&
+                                currentItem.JobTitle == contact.JobTitle &&
+                                currentItem.CompanyName == contact.CompanyName &&
+                                currentItem.BusinessHomePage == contact.BusinessHomePage &&
+                                // currentItem.Categories == contact.Categories &&
+                                // currentItem.Body == contact.Body &&
+                                currentItem.BusinessTelephoneNumber == contact.BusinessTelephoneNumber &&
+                                currentItem.Business2TelephoneNumber == contact.Business2TelephoneNumber &&
+                                currentItem.Email1Address == contact.Email1Address &&
+                                currentItem.Email2Address == contact.Email2Address &&
+                                currentItem.Email3Address == contact.Email3Address &&
+                                currentItem.MobileTelephoneNumber == contact.MobileTelephoneNumber)
                             {
-                                ContactObject co = new ContactObject(contact);
-                                contactsToCombine.Add(co);
+                                bool bSave = false;
+
+                                if (contact.Body != null)
+                                {
+                                    string newBody = currentItem.Body;
+                                    newBody += $"\n{contact.Body}";
+                                    currentItem.Body = newBody;
+                                    bSave = true;
+                                }
+
+                                if (contact.Categories != null)
+                                {
+                                    string existingCategoriesNew = contact.Categories ?? string.Empty;
+                                    string existingCategoriesOld = currentItem.Categories ?? string.Empty;
+
+                                    // Split into a list
+                                    var categoriesNew = existingCategoriesNew
+                                        .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
+                                        .Select(c => c.Trim())
+                                        .ToList();
+
+                                    var categoriesOld = existingCategoriesOld
+                                        .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
+                                        .Select(c => c.Trim())
+                                        .ToList();
+
+
+                                    foreach (string c in categoriesNew)
+                                    {
+                                        if (!categoriesOld.Contains(c, StringComparer.OrdinalIgnoreCase))
+                                        {
+                                            categoriesOld.Add(c);
+                                        }
+                                    }
+
+                                    // Join back into a semicolon-delimited string
+                                    currentItem.Categories = string.Join(";", categoriesOld);
+
+                                    bSave = true;
+                                }
+
+                                // Save the contact
+                                if (bSave)
+                                {
+                                    currentItem.Save();
+                                }
+
+                                string fullName = contact.FullName;
+
+                                deleteList.Add(contact);
+
                                 // Marshal.ReleaseComObject(contact);
+                                continue;
                             }
                             else
                             {
-                                ContactObject co = new ContactObject(currentItem);
-                                contactsToCombine.Add(co);
-                                // Marshal.ReleaseComObject(currentItem);
-                                currentItem = contact;
+                                if (ContactObject.NumberOfFieldSet(currentItem) >= ContactObject.NumberOfFieldSet(contact))
+                                {
+                                    ContactObject co = new ContactObject(contact);
+                                    contactsToCombine.Add(co);
+                                    // Marshal.ReleaseComObject(contact);
+                                }
+                                else
+                                {
+                                    ContactObject co = new ContactObject(currentItem);
+                                    contactsToCombine.Add(co);
+                                    // Marshal.ReleaseComObject(currentItem);
+                                    currentItem = contact;
+                                }
+                                continue;
                             }
+                        }
+                        else
+                        {
+                            bool bSave = false;
+
+                            if (contactsToCombine.Count > 0)
+                            {
+                                StringBuilder newBody = new StringBuilder();
+                                newBody.AppendLine(currentItem.Body);
+                                Dictionary<string, string> categoryMap = new Dictionary<string, string>();
+
+                                foreach (ContactObject co in contactsToCombine)
+                                {
+                                    string generateBoday = co.GenerateBody(currentItem);
+                                    if (string.IsNullOrWhiteSpace(generateBoday) == false)
+                                    {
+                                        newBody.AppendLine(generateBoday);
+                                    }
+
+                                    List<string> newCategories = co.GenerateListOfCaterogies();
+
+                                    foreach (string category in newCategories)
+                                    {
+                                        if (categoryMap.ContainsKey(category) == false)
+                                        {
+                                            categoryMap.Add(category, category);
+                                        }
+                                    }
+                                }
+
+                                string newBodyStr = newBody.ToString();
+
+                                if (string.IsNullOrWhiteSpace(newBodyStr) == false)
+                                {
+                                    currentItem.Body = newBody.ToString();
+                                    bSave = true;
+
+                                }
+
+                                if (categoryMap.Count > 0)
+                                {
+                                    if (currentItem.Categories != null)
+                                    {
+                                        List<string> currentCategories = currentItem.Categories
+                                            .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                            .Select(c => c.Trim())
+                                            .Where(c => !string.IsNullOrEmpty(c))
+                                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                                            .ToList();
+
+                                        foreach (string category in currentCategories)
+                                        {
+                                            if (categoryMap.ContainsKey(category) == false)
+                                            {
+                                                categoryMap.Add(category, category);
+                                            }
+                                        }
+                                    }
+
+                                    List<string> cl = categoryMap.Keys.ToList();
+                                    string newCategories = string.Join(", ", cl);
+                                    currentItem.Categories = newCategories;
+                                    bSave = true;
+                                }
+
+                                if (bSave)
+                                {
+                                    currentItem.Save();
+                                }
+
+                                foreach (ContactObject co in contactsToCombine)
+                                {
+                                    deleteList.Add(co.ContactItem);
+                                }
+
+                                Logger.Log($"{currentItem.FullName}");
+                            }
+
+                            contactsToCombine.Clear();
+                            Marshal.ReleaseComObject(currentItem);
+                            currentItem = contact;
                             continue;
                         }
                     }
                     else
                     {
-                        bool bSave = false;
+                        string[] searchTerms = new [] {"recruit", "talent", "staff", "sourcer", "search" };
 
-                        if (contactsToCombine.Count > 0)
+                        foreach (var term in searchTerms)
                         {
-                            StringBuilder newBody = new StringBuilder();
-                            newBody.AppendLine(currentItem.Body);
-                            Dictionary<string, string> categoryMap = new Dictionary<string, string>();
-
-                            foreach (ContactObject co in contactsToCombine)
+                            // Use regex to find the word (case-insensitive)
+                            var regex = new Regex(Regex.Escape(term) , RegexOptions.IgnoreCase);
+                            string body = !string.IsNullOrWhiteSpace(contact.Body) ? contact.Body : string.Empty;
+                            string JobTitle = !string.IsNullOrWhiteSpace(contact.JobTitle) ? contact.JobTitle : string.Empty;
+                            Dictionary<string, string> categoryMap = new Dictionary<string, string>
                             {
-                                string generateBoday = co.GenerateBody(currentItem);
-                                if (string.IsNullOrWhiteSpace(generateBoday) == false)
-                                {
-                                    newBody.AppendLine(generateBoday);
-                                }
+                                { "R1000", "R1000" }
+                            };
 
-                                List<string> newCategories = co.GenerateListOfCaterogies();
+                            var matchesBody = regex.Matches(body);
+                            
+                            var matchesJobTitle = regex.Matches(JobTitle);
 
-                                foreach (string category in newCategories)
-                                {
-                                    if (categoryMap.ContainsKey(category) == false)
-                                    {
-                                        categoryMap.Add(category, category);
-                                    }
-                                }
-                            }
-
-                            string newBodyStr = newBody.ToString();
-
-                            if (string.IsNullOrWhiteSpace(newBodyStr) == false)
+                            if (matchesBody.Count > 0 || matchesJobTitle.Count > 0)
                             {
-                                currentItem.Body = newBody.ToString();
-                                bSave = true;
-
-                            }
-
-                            if (categoryMap.Count > 0)
-                            {
-                                if (currentItem.Categories != null)
+                                if (contact.Categories != null)
                                 {
-                                    List<string> currentCategories = currentItem.Categories
-                                        .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                                        .Select(c => c.Trim())
-                                        .Where(c => !string.IsNullOrEmpty(c))
-                                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                                        .ToList();
+                                    List<string> categories = contact.Categories
+                                            .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                            .Select(c => c.Trim())
+                                            .Where(c => !string.IsNullOrEmpty(c))
+                                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                                            .ToList();
 
-                                    foreach (string category in currentCategories)
+                                    foreach (string category in categories)
                                     {
                                         if (categoryMap.ContainsKey(category) == false)
                                         {
@@ -370,31 +441,42 @@ namespace CombineContacts
 
                                 List<string> cl = categoryMap.Keys.ToList();
                                 string newCategories = string.Join(", ", cl);
-                                currentItem.Categories = newCategories;
-                                bSave = true;
+                                contact.Categories = newCategories;
+                                contact.Save();
+                                break;
                             }
 
-                            if (bSave)
-                            {
-                                currentItem.Save();
-                            }
-
-                            foreach (ContactObject co in contactsToCombine)
-                            {
-                                co.ContactItem.Delete();
-                                Marshal.ReleaseComObject(co.ContactItem);
-                            }
-
-                            Logger.Log($"{currentItem.FullName}");
                         }
 
-                        contactsToCombine.Clear();
-                        Marshal.ReleaseComObject(currentItem);
-                        currentItem = contact;
-                        continue;
-                    }*/
-                } 
-            
+                        Marshal.ReleaseComObject(contact);
+
+
+                        /*
+
+                        if(string.IsNullOrEmpty(contact.Email1Address))
+                        {
+                            Marshal.ReleaseComObject(contact);
+                            continue;
+                        }
+
+                        if (emailsToDelete.TryGetValue(contact.Email1Address, out outEmail))
+                        {
+                            deleteList.Add(contact);
+                        }
+                        else
+                        {
+                            Marshal.ReleaseComObject(contact);
+                        }
+                        */
+                    }
+                }
+
+                foreach(ContactItem i in deleteList)
+                {
+                    i.Delete();
+                    Marshal.ReleaseComObject(i);
+                }
+
                 ns.Logoff();    
             }
             catch (System.Exception ex)
@@ -407,6 +489,42 @@ namespace CombineContacts
                 Marshal.ReleaseComObject(ns);
                 Marshal.ReleaseComObject(outlookApp);
             }
+        }
+
+        private static Dictionary<string, string> LoadEmailsIntoDictionary(string filePath)
+        {
+            Dictionary<string, string> emails = new Dictionary<string, string>();
+
+            try
+            {
+                if (File.Exists(filePath))
+                {
+                    foreach (string line in File.ReadLines(filePath))
+                    {
+                        if (string.IsNullOrWhiteSpace(line))
+                        {
+                            continue;
+                        }
+
+                        if(emails.ContainsKey(line))
+                        {
+                            continue;
+                        }
+
+                        emails.Add(line, line);
+                    }
+                }
+                else
+                {
+                    throw new System.Exception($"File not found: {filePath}");
+                }
+            }
+            catch(System.Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+
+            return emails;
         }
     }
 }
